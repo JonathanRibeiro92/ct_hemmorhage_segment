@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def resize_img(img, img_shape: Tuple[int, int] = (256, 256)):
+def resize_img(img, img_shape: Tuple[int, int] = (512, 512)):
     img = img.astype(np.uint8)
     img = cv2.resize(img, img_shape)
     return img
@@ -13,7 +13,7 @@ def resize_img(img, img_shape: Tuple[int, int] = (256, 256)):
 
 def generate_histogram(img, brain_mask=None):
     img = img.astype(np.uint8)
-    histogram = cv2.calcHist([img], [0], brain_mask, [256], [0, 256])
+    histogram = cv2.calcHist([img], [0], brain_mask, [512], [0, 512])
     return histogram
 
 
@@ -94,11 +94,11 @@ def biggest_component(image):
     return mask
 
 
-def apply_theshold(maxs, masked_brain, img):
+def apply_threshold(maxs, masked_brain, img, thresh_val=150):
     # find the first maximum after the 150 and assume it is the hemorrhage
     hemorrhage_idx = 0
     for i, val in enumerate(maxs):
-        if val > 150:
+        if val > thresh_val:
             hemorrhage_idx = i
             break
 
@@ -155,10 +155,10 @@ def mask_out_small_components(labels, stats, num_labels, area_threshold=20):
     return mask
 
 
-def segment_ct_scan(img):
+def segment_ct_scan(img, min_mask=30, max_mask=230, thresh_val=150):
     img = resize_img(img)
     histogram = generate_histogram(img)
-    mask = apply_mask_hide_pixel(img)
+    mask = apply_mask_hide_pixel(img, min_mask, max_mask)
 
     # Erode + dilate
     masked_img = erode_dilate_img(img, mask)
@@ -178,9 +178,9 @@ def segment_ct_scan(img):
     if len(maxs) == 0:
         return segmented, heatmap
     components_view, labels, stats, segmented, num_labels, mask = \
-        apply_theshold(maxs,
-                                                                           masked_brain,
-                                                                           img)
+        apply_threshold(maxs,
+                        masked_brain,
+                        img, thresh_val)
     noise_removal_mask = mask_out_small_components(labels, stats, num_labels)
     mask[noise_removal_mask == 0] = 0
     segmented[noise_removal_mask == 0] = 0
