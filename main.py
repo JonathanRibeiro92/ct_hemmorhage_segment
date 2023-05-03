@@ -21,7 +21,7 @@ def read_CSVResults_calc_metrics(min_mask, max_mask, thresh_val, window_specs):
 
     idx_Jaccard = "Jaccard_" + str_params
     idx_Dice = "Dice_" + str_params
-    idx_Specificity = "Specificity" + str_params
+    idx_Specificity = "Specificity_" + str_params
     idx_F1Score = "F1Score_" + str_params
     idx_Sensitivity = "Sensitivity_" + str_params
     idx_Precision = "Precision_" + str_params

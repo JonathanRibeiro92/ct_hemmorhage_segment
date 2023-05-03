@@ -36,24 +36,25 @@ def dice_similarity(image1, image2):
 
     return similarity
 
+
 # taxa de verdadeiros positivos ou taxa de recall
 def calculate_sensitivity(image1, image2):
     # verificar se as imagens têm as mesmas dimensões
     # if image1.shape != image2.shape:
     #     raise ValueError("As imagens têm dimensões diferentes!")
 
-    # calcular o número de pixels corretamente classificados
-    true_positives = np.sum(np.logical_and(image1 == 1, image2 == 1))
+    # compara as imagens pixel a pixel
+    comp = np.equal(image1, image2)
 
-    # calcular o número de pixels que deveriam ter sido classificados como positivos
-    actual_positives = np.sum(image1 == 1)
+    # conta os verdadeiros positivos e falsos negativos
+    tp = np.sum(comp)
+    fn = np.sum(comp & (image2 == 0))
 
-    # verificar se não há pixels positivos na imagem de referência
-    if actual_positives == 0:
+    if fn == 0:
         sensitivity = 0.0
     else:
-        # calcular o recall
-        sensitivity = true_positives / actual_positives
+        # calcula a sensibilidade
+        sensitivity = tp / (tp + fn)
 
     return sensitivity
 
@@ -63,18 +64,19 @@ def calculate_precision(image1, image2):
     if image1.shape != image2.shape:
         raise ValueError("As imagens têm dimensões diferentes!")
 
-    # calcular o número de pixels corretamente classificados como positivos
-    true_positives = np.sum(np.logical_and(image1 == 1, image2 == 1))
+    # compara as imagens pixel a pixel
+    comp = np.equal(image1, image2)
 
-    # calcular o número de pixels classificados como positivos
-    predicted_positives = np.sum(image2 == 1)
+    # conta os verdadeiros positivos e falsos positivos
+    tp = np.sum(comp)
+    fp = np.sum(~comp & (image2 == 1))
 
     # verificar se não há pixels positivos na imagem de referência
-    if predicted_positives == 0:
+    if fp == 0:
         precision = 0.0
     else:
-        # calcular a precisão
-        precision = true_positives / predicted_positives
+        # calcula a precisão
+        precision = tp / (tp + fp)
 
     return precision
 
@@ -82,33 +84,34 @@ def calculate_precision(image1, image2):
 def calculate_f1_score(image1, image2):
     # calcular a precisão e o recall
     precision = calculate_precision(image1, image2)
-    recall = calculate_sensitivity(image1, image2)
+    sensitivity = calculate_sensitivity(image1, image2)
 
     # calcular o F1 Score
-    if precision == 0 and recall == 0:
+    if precision == 0 and sensitivity == 0:
         f1_score = 0.0
     else:
-        f1_score = 2 * ((precision * recall) / (precision + recall))
+        f1_score = 2 * ((precision * sensitivity) / (precision + sensitivity))
 
     return f1_score
 
-#taxa de verdadeiros negativos
+
+# taxa de verdadeiros negativos
 def calculate_specificity(image1, image2):
     # verificar se as imagens têm as mesmas dimensões
     if image1.shape != image2.shape:
         raise ValueError("As imagens têm dimensões diferentes!")
 
-    # calcular o número de pixels corretamente classificados como negativos
-    true_negatives = np.sum(np.logical_and(image1 == 0, image2 == 0))
 
-    # calcular o número de pixels negativos na imagem de referência
-    actual_negatives = np.sum(image1 == 0)
+    comp = (image1 != image2)
 
-    # verificar se não há pixels negativos na imagem de referência
-    if actual_negatives == 0:
+    # conta os verdadeiros negativos e falsos positivos
+    tn = np.sum(comp & (image1 == 0) & (image2 == 0))
+    fp = np.sum(comp & (image1 == 0) & (image2 == 1))
+
+    if fp == 0:
         specificity = 0.0
     else:
-        # calcular a especificidade
-        specificity = true_negatives / actual_negatives
+        # calcula a especificidade
+        specificity = tn / (tn + fp)
 
     return specificity
