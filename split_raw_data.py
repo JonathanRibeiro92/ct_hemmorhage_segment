@@ -131,7 +131,7 @@ def read_ct_scans(min_mask=30, max_mask=230, thresh_val=150, window_specs=[40, 8
 
             for sliceI in range(0, sliceNos.size):
                 ct_scan_slice = ct_scan[:, :, sliceI]
-                mask_slice = masks[:, :, sliceI]
+                mask_slice = resize_img(masks[:, :, sliceI])
 
                 # Saving the a given CT slice
                 x = Image.fromarray(ct_scan_slice).resize(new_size)
