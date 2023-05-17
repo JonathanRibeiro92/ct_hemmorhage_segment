@@ -16,7 +16,8 @@ from segment_images import *
 
 
 def load_ct_mask(datasetDir, sub_n, window_specs):
-    ct_dir_subj = Path(datasetDir, 'ct_scans', "{0:0=3d}.nii".format(sub_n))
+    ct_dir_subj = Path(datasetDir, 'ct_scans', "{0:0=3d}.nii".format(int(
+        sub_n)))
     ct_scan_nifti: SpatialImage = nib.load(str(ct_dir_subj))
     ct_scan_shape = ct_scan_nifti.shape
     ct_scan = np.asanyarray(ct_scan_nifti.dataobj)
@@ -51,11 +52,11 @@ def read_ct_scans(min_mask=30, max_mask=230, thresh_val=150, window_specs=[40, 8
     currentDir = Path(os.getcwd())
     datasetDir = str(Path(currentDir))
 
-    data_path = Path('data')
+    result_path = Path('result')
 
     # Reading labels
     hemorrhage_diagnosis_df = pd.read_csv(
-        Path(data_path, 'hemorrhage_segment_results.csv'))
+        Path(result_path, 'hemorrhage_segment_results.csv'))
 
     hemorrhage_diagnosis_array = hemorrhage_diagnosis_df.values
     '''columns=['PatientNumber','SliceNumber','Intraventricular','Intraparenchymal','Subarachnoid','Epidural',
@@ -77,6 +78,12 @@ def read_ct_scans(min_mask=30, max_mask=230, thresh_val=150, window_specs=[40, 8
     idx_F1Score = "F1Score_" + str_params
     idx_Sensitivity = "Sensitivity_" + str_params
     idx_Precision = "Precision_" + str_params
+    idx_FPR = "FPR_" + str_params
+    idx_TP = "TP_" + str_params
+    idx_FP = "FP_" + str_params
+    idx_TN = "TN_" + str_params
+    idx_FN = "FN_" + str_params
+
 
     hemorrhage_diagnosis_df[idx_No_hemmo] = np.nan
     hemorrhage_diagnosis_df[idx_Jaccard] = np.nan
@@ -85,98 +92,119 @@ def read_ct_scans(min_mask=30, max_mask=230, thresh_val=150, window_specs=[40, 8
     hemorrhage_diagnosis_df[idx_F1Score] = np.nan
     hemorrhage_diagnosis_df[idx_Sensitivity] = np.nan
     hemorrhage_diagnosis_df[idx_Precision] = np.nan
+    hemorrhage_diagnosis_df[idx_FPR] = np.nan
+    hemorrhage_diagnosis_df[idx_TP] = np.nan
+    hemorrhage_diagnosis_df[idx_FP] = np.nan
+    hemorrhage_diagnosis_df[idx_TN] = np.nan
+    hemorrhage_diagnosis_df[idx_FN] = np.nan
 
     index_df = 0
 
 
-    str_params_path = data_path / str_params
+    str_params_path = result_path / str_params
     image_path = str_params_path / 'image'
     label_path = str_params_path / 'label'
 
     segment_path = str_params_path / 'segment'
 
     heatmap_path = str_params_path / 'heatmap'
-    if not data_path.exists():
-        data_path.mkdir()
+    if not result_path.exists():
+        result_path.mkdir()
     str_params_path.mkdir()
     image_path.mkdir()
     label_path.mkdir()
     segment_path.mkdir()
     heatmap_path.mkdir()
 
-    for sNo in range(0 + 49, numSubj + 49):
-        if sNo > 58 and sNo < 66:  # no raw data were available for these subjects
+    subject_nums = [int(i) for i in np.unique(hemorrhage_diagnosis_array[:, 0])]
+
+    for sNo in subject_nums:
+
+        # Loading the CT scan and masks
+        ct_scan, masks = load_ct_mask(datasetDir, sNo, window_specs)
+
+        idx = hemorrhage_diagnosis_array[:, 0] == sNo
+        sliceNos = hemorrhage_diagnosis_array[idx, 1]
+
+        if sliceNos.size != ct_scan.shape[2]:
+            print(
+                'Warning: the number of annotated slices does not equal the number of slices in NIFTI file!')
+
+        # Grouping image/label for subject
+        image_sNo_path = image_path / str(sNo)
+        label_sNo_path = label_path / str(sNo)
+        segment_sNo_path = segment_path / str(sNo)
+        heatmap_sNo_path = heatmap_path / str(sNo)
+        image_sNo_path.mkdir()
+        label_sNo_path.mkdir()
+        segment_sNo_path.mkdir()
+        heatmap_sNo_path.mkdir()
+
+        for sliceI in range(0, sliceNos.size):
+            ct_scan_slice = ct_scan[:, :, sliceI]
+            mask_slice = resize_img(masks[:, :, sliceI])
+
+            #para salvar o nome do arquivo corretamente
+            sliceI = sliceI + 1
+            # Saving the a given CT slice
+            x = Image.fromarray(ct_scan_slice).resize(new_size)
+            x.convert("L").save(image_sNo_path / (str(sliceI) + '.png'))
+
+            # Saving the segmentation for a given slice
+            segmented, heatmap = segment_ct_scan(ct_scan_slice, min_mask,
+                                                 max_mask, thresh_val)
+
+            x = Image.fromarray(segmented).resize(new_size)
+            x.convert("L").save(
+                segment_sNo_path / (str(sliceI) + '_HGE_Seg.jpg'))
+
+            x = Image.fromarray(heatmap).resize(new_size)
+            x.convert("L").save(
+                heatmap_sNo_path / (str(sliceI) + '_Heatmap.jpg'))
+
+            # Saving mask
+            x = Image.fromarray(mask_slice).resize(new_size)
+            x.convert("L").save(label_sNo_path / (str(sliceI) + '.png'))
+
+            hemorrhage_diagnosis_df.loc[index_df, idx_No_hemmo] = 1 if \
+                np.all(segmented == 0) else 0
+
+
+            tp, fp, tn, fn = rates(mask_slice, segmented)
+            hemorrhage_diagnosis_df.loc[
+                index_df, idx_TP] = tp
+            hemorrhage_diagnosis_df.loc[
+                index_df, idx_FP] = fp
+            hemorrhage_diagnosis_df.loc[
+                index_df, idx_TN] = tn
+            hemorrhage_diagnosis_df.loc[
+                index_df, idx_FN] = fn
+
+            hemorrhage_diagnosis_df.loc[
+                index_df, idx_Jaccard] = jaccard_similarity(
+                mask_slice,
+                segmented)
+            hemorrhage_diagnosis_df.loc[
+                index_df, idx_Dice] = dice_similarity(
+                mask_slice, segmented)
+            hemorrhage_diagnosis_df.loc[
+                index_df, idx_Specificity] = calculate_specificity(
+                mask_slice, segmented)
+            hemorrhage_diagnosis_df.loc[
+                index_df, idx_F1Score] = calculate_f1_score(
+                mask_slice, segmented)
+            hemorrhage_diagnosis_df.loc[
+                index_df, idx_Sensitivity] = calculate_sensitivity(
+                mask_slice, segmented)
+            hemorrhage_diagnosis_df.loc[
+                index_df, idx_Precision] = calculate_precision(
+                mask_slice, segmented)
+            hemorrhage_diagnosis_df.loc[
+                index_df, idx_FPR] = calculate_false_positive_rate(
+                mask_slice, segmented)
+
             index_df += 1
-            next
-        else:
-            # Loading the CT scan and masks
-            ct_scan, masks = load_ct_mask(datasetDir, sNo, window_specs)
 
-            idx = hemorrhage_diagnosis_array[:, 0] == sNo
-            sliceNos = hemorrhage_diagnosis_array[idx, 1]
-
-            if sliceNos.size != ct_scan.shape[2]:
-                print(
-                    'Warning: the number of annotated slices does not equal the number of slices in NIFTI file!')
-
-            # Grouping image/label for subject
-            image_sNo_path = image_path / str(sNo)
-            label_sNo_path = label_path / str(sNo)
-            segment_sNo_path = segment_path / str(sNo)
-            heatmap_sNo_path = heatmap_path / str(sNo)
-            image_sNo_path.mkdir()
-            label_sNo_path.mkdir()
-            segment_sNo_path.mkdir()
-            heatmap_sNo_path.mkdir()
-
-            for sliceI in range(0, sliceNos.size):
-                ct_scan_slice = ct_scan[:, :, sliceI]
-                mask_slice = resize_img(masks[:, :, sliceI])
-
-                # Saving the a given CT slice
-                x = Image.fromarray(ct_scan_slice).resize(new_size)
-                x.convert("L").save(image_sNo_path / (str(sliceI) + '.png'))
-
-                # Saving the segmentation for a given slice
-                segmented, heatmap = segment_ct_scan(ct_scan_slice, min_mask,
-                                                     max_mask, thresh_val)
-
-                x = Image.fromarray(segmented).resize(new_size)
-                x.convert("L").save(
-                    segment_sNo_path / (str(sliceI) + '_HGE_Seg.jpg'))
-
-                x = Image.fromarray(heatmap).resize(new_size)
-                x.convert("L").save(
-                    heatmap_sNo_path / (str(sliceI) + '_Heatmap.jpg'))
-
-                # Saving mask
-                x = Image.fromarray(mask_slice).resize(new_size)
-                x.convert("L").save(label_sNo_path / (str(sliceI) + '.png'))
-
-                hemorrhage_diagnosis_df.loc[index_df, idx_No_hemmo] = 1 if \
-                    np.all(segmented == 0) else 0
-                hemorrhage_diagnosis_df.loc[
-                    index_df, idx_Jaccard] = jaccard_similarity(
-                    mask_slice,
-                    segmented)
-                hemorrhage_diagnosis_df.loc[
-                    index_df, idx_Dice] = dice_similarity(
-                    mask_slice, segmented)
-                hemorrhage_diagnosis_df.loc[
-                    index_df, idx_Specificity] = calculate_specificity(
-                    mask_slice, segmented)
-                hemorrhage_diagnosis_df.loc[
-                    index_df, idx_F1Score] = calculate_f1_score(
-                    mask_slice, segmented)
-                hemorrhage_diagnosis_df.loc[
-                    index_df, idx_Sensitivity] = calculate_sensitivity(
-                    mask_slice, segmented)
-                hemorrhage_diagnosis_df.loc[
-                    index_df, idx_Precision] = calculate_precision(
-                    mask_slice, segmented)
-
-                index_df += 1
-
-    result_path = data_path / 'hemorrhage_segment_results.csv'
+    result_path = result_path / 'hemorrhage_segment_results.csv'
     hemorrhage_diagnosis_df.to_csv(result_path, index=False)
 

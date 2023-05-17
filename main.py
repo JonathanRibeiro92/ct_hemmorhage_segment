@@ -7,10 +7,10 @@ import time
 
 
 def read_CSVResults_calc_metrics(min_mask, max_mask, thresh_val, window_specs):
-    data_path = Path('data')
+    result_path = Path('result')
 
     hemorrhage_diagnosis_df = pd.read_csv(
-        Path(data_path, 'hemorrhage_segment_results.csv'))
+        Path(result_path, 'hemorrhage_segment_results.csv'))
 
     str_params = 'th_' + '_'.join(map(str, [min_mask, max_mask, thresh_val])) \
                  + '_.w_' + \
@@ -25,6 +25,7 @@ def read_CSVResults_calc_metrics(min_mask, max_mask, thresh_val, window_specs):
     idx_F1Score = "F1Score_" + str_params
     idx_Sensitivity = "Sensitivity_" + str_params
     idx_Precision = "Precision_" + str_params
+    idx_FPR = "FPR_" + str_params
 
     min_jaccard = hemorrhage_diagnosis_df[idx_Jaccard].min()
     min_Dice = hemorrhage_diagnosis_df[idx_Dice].min()
@@ -32,6 +33,7 @@ def read_CSVResults_calc_metrics(min_mask, max_mask, thresh_val, window_specs):
     min_F1Score = hemorrhage_diagnosis_df[idx_F1Score].min()
     min_Sensitivity = hemorrhage_diagnosis_df[idx_Sensitivity].min()
     min_Precision = hemorrhage_diagnosis_df[idx_Precision].min()
+    min_FPR = hemorrhage_diagnosis_df[idx_FPR].min()
 
     max_jaccard = hemorrhage_diagnosis_df[idx_Jaccard].max()
     max_Dice = hemorrhage_diagnosis_df[idx_Dice].max()
@@ -39,6 +41,7 @@ def read_CSVResults_calc_metrics(min_mask, max_mask, thresh_val, window_specs):
     max_F1Score = hemorrhage_diagnosis_df[idx_F1Score].max()
     max_Sensitivity = hemorrhage_diagnosis_df[idx_Sensitivity].max()
     max_Precision = hemorrhage_diagnosis_df[idx_Precision].max()
+    max_FPR = hemorrhage_diagnosis_df[idx_FPR].max()
 
     mean_jaccard = hemorrhage_diagnosis_df[idx_Jaccard].mean()
     mean_Dice = hemorrhage_diagnosis_df[idx_Dice].mean()
@@ -46,6 +49,7 @@ def read_CSVResults_calc_metrics(min_mask, max_mask, thresh_val, window_specs):
     mean_F1Score = hemorrhage_diagnosis_df[idx_F1Score].mean()
     mean_Sensitivity = hemorrhage_diagnosis_df[idx_Sensitivity].mean()
     mean_Precision = hemorrhage_diagnosis_df[idx_Precision].mean()
+    mean_FPR = hemorrhage_diagnosis_df[idx_FPR].mean()
 
     std_jaccard = hemorrhage_diagnosis_df[idx_Jaccard].std()
     std_Dice = hemorrhage_diagnosis_df[idx_Dice].std()
@@ -53,10 +57,11 @@ def read_CSVResults_calc_metrics(min_mask, max_mask, thresh_val, window_specs):
     std_F1Score = hemorrhage_diagnosis_df[idx_F1Score].std()
     std_Sensitivity = hemorrhage_diagnosis_df[idx_Sensitivity].std()
     std_Precision = hemorrhage_diagnosis_df[idx_Precision].std()
+    std_FPR = hemorrhage_diagnosis_df[idx_FPR].std()
 
     # Definir colunas e índices
     colunas = ['Jaccard', 'Dice', 'Specificity', 'F1Score', 'Sensitivity',
-               'Precision']
+               'Precision', 'FPR']
     indices = ['Min', 'Max', 'STD', 'Mean']
 
     # Criar dataframe vazio com colunas e índices
@@ -68,6 +73,7 @@ def read_CSVResults_calc_metrics(min_mask, max_mask, thresh_val, window_specs):
     df_metrics.loc['Min', 'F1Score'] = min_F1Score
     df_metrics.loc['Min', 'Sensitivity'] = min_Sensitivity
     df_metrics.loc['Min', 'Precision'] = min_Precision
+    df_metrics.loc['Min', 'FPR'] = min_FPR
 
     df_metrics.loc['Max', 'Jaccard'] = max_jaccard
     df_metrics.loc['Max', 'Dice'] = max_Dice
@@ -75,6 +81,7 @@ def read_CSVResults_calc_metrics(min_mask, max_mask, thresh_val, window_specs):
     df_metrics.loc['Max', 'F1Score'] = max_F1Score
     df_metrics.loc['Max', 'Sensitivity'] = max_Sensitivity
     df_metrics.loc['Max', 'Precision'] = max_Precision
+    df_metrics.loc['Max', 'FPR'] = max_FPR
 
     df_metrics.loc['STD', 'Jaccard'] = std_jaccard
     df_metrics.loc['STD', 'Dice'] = std_Dice
@@ -82,6 +89,7 @@ def read_CSVResults_calc_metrics(min_mask, max_mask, thresh_val, window_specs):
     df_metrics.loc['STD', 'F1Score'] = std_F1Score
     df_metrics.loc['STD', 'Sensitivity'] = std_Sensitivity
     df_metrics.loc['STD', 'Precision'] = std_Precision
+    df_metrics.loc['STD', 'FPR'] = std_FPR
 
     df_metrics.loc['Mean', 'Jaccard'] = mean_jaccard
     df_metrics.loc['Mean', 'Dice'] = mean_Dice
@@ -89,8 +97,9 @@ def read_CSVResults_calc_metrics(min_mask, max_mask, thresh_val, window_specs):
     df_metrics.loc['Mean', 'F1Score'] = mean_F1Score
     df_metrics.loc['Mean', 'Sensitivity'] = mean_Sensitivity
     df_metrics.loc['Mean', 'Precision'] = mean_Precision
+    df_metrics.loc['Mean', 'FPR'] = mean_FPR
 
-    metrics_path = data_path / (str_params + 'metrics_segment_results.csv')
+    metrics_path = result_path / (str_params + 'metrics_segment_results.csv')
     df_metrics.to_csv(metrics_path)
 
 
@@ -98,14 +107,14 @@ def main():
     currentDir = Path(os.getcwd())
     datasetDir = str(Path(currentDir))
 
-    data_path = Path('data')
-    if not data_path.exists():
-        data_path.mkdir()
+    result_path = Path('result')
+    if not result_path.exists():
+        result_path.mkdir()
 
     hemorrhage_diagnosis_df = pd.read_csv(
         Path(datasetDir, 'hemorrhage_diagnosis_raw_ct.csv'))
 
-    result_path = data_path / 'hemorrhage_segment_results.csv'
+    result_path = result_path / 'hemorrhage_segment_results.csv'
     hemorrhage_diagnosis_df.to_csv(result_path, index=False)
 
     params = {1: [(30, 230, 150), [40, 80]],
