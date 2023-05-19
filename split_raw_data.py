@@ -126,10 +126,6 @@ def read_ct_scans(min_mask=30, max_mask=230, thresh_val=150, window_specs=[40, 8
         idx = hemorrhage_diagnosis_array[:, 0] == sNo
         sliceNos = hemorrhage_diagnosis_array[idx, 1]
 
-        if sliceNos.size != ct_scan.shape[2]:
-            print(
-                'Warning: the number of annotated slices does not equal the number of slices in NIFTI file!')
-
         # Grouping image/label for subject
         image_sNo_path = image_path / str(sNo)
         label_sNo_path = label_path / str(sNo)
@@ -140,12 +136,13 @@ def read_ct_scans(min_mask=30, max_mask=230, thresh_val=150, window_specs=[40, 8
         segment_sNo_path.mkdir()
         heatmap_sNo_path.mkdir()
 
-        for sliceI in range(0, sliceNos.size):
+        # ignorando os cinco primeiros slices
+        for sliceI in sliceNos:
+            sliceI = int(sliceI) - 1
             ct_scan_slice = ct_scan[:, :, sliceI]
             mask_slice = resize_img(masks[:, :, sliceI])
 
-            #para salvar o nome do arquivo corretamente
-            sliceI = sliceI + 1
+
             # Saving the a given CT slice
             x = Image.fromarray(ct_scan_slice).resize(new_size)
             x.convert("L").save(image_sNo_path / (str(sliceI) + '.png'))
